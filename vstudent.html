@@ -1,0 +1,175 @@
+<!doctype html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>College Inquiry</title>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <style>
+        html, body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        var canvas = document.getElementById("renderCanvas");
+        var engine = new BABYLON.Engine(canvas, true);
+        var scene = new BABYLON.Scene(engine);
+
+        // Camera and Light
+        var camera = new BABYLON.ArcRotateCamera("camera1", Math.PI / 2, Math.PI / 4, 10, new BABYLON.Vector3(0, 0, 0), scene);
+        camera.attachControl(canvas, true);
+        camera.speed = 0.1;
+
+        var light = new BABYLON.HemisphericLight("Light", new BABYLON.Vector3(0, 1, 0), scene);
+
+        // Ground
+        var ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 50, height: 50 }, scene);
+        var groundMaterial = new BABYLON.StandardMaterial("groundMat", scene);
+        groundMaterial.diffuseColor = new BABYLON.Color3(0.4, 0.8, 0.4);
+        ground.material = groundMaterial;
+
+        // Player (Box)
+        var player = BABYLON.MeshBuilder.CreateBox("player", { size: 1 }, scene);
+        player.position = new BABYLON.Vector3(0, 0.5, 0);
+        player.ellipsoid = new BABYLON.Vector3(0.5, 0.5, 0.5); // Collider size
+        camera.target = player;
+        // Add Movement Controls
+        var inputMap = {};
+        scene.actionManager = new BABYLON.ActionManager(scene);
+
+        scene.actionManager.registerAction(
+            new BABYLON.ExecuteCodeAction(
+                BABYLON.ActionManager.OnKeyDownTrigger,
+                function (evt) {
+                    inputMap[evt.sourceEvent.key] = true;
+                }
+            )
+        );
+
+        scene.actionManager.registerAction(
+            new BABYLON.ExecuteCodeAction(
+                BABYLON.ActionManager.OnKeyUpTrigger,
+                function (evt) {
+                    inputMap[evt.sourceEvent.key] = false;
+                }
+            )
+        );
+
+        scene.onBeforeRenderObservable.add(() => {
+            var speed = 0.1;
+            if (inputMap["w"]) {
+                player.moveWithCollisions(new BABYLON.Vector3(0, 0, speed * -1));
+            }
+            if (inputMap["s"]) {
+                player.moveWithCollisions(new BABYLON.Vector3(0, 0, speed));
+            }
+            if (inputMap["a"]) {
+                player.moveWithCollisions(new BABYLON.Vector3(speed * -1, 0, 0));
+            }
+            if (inputMap["d"]) {
+                player.moveWithCollisions(new BABYLON.Vector3(speed, 0, 0));
+            }
+        });
+
+        // Dialog Box Setup
+        var advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+        var dialogBox = new BABYLON.GUI.Rectangle();
+        dialogBox.width = "400px";
+        dialogBox.height = "300px";
+        dialogBox.cornerRadius = 10;
+        dialogBox.color = "white";
+        dialogBox.thickness = 2;
+        dialogBox.background = "black";
+        dialogBox.isVisible = false;
+        advancedTexture.addControl(dialogBox);
+
+        var dialogText = new BABYLON.GUI.TextBlock();
+        dialogText.color = "white";
+        dialogText.textWrapping = true;
+        dialogText.text = "";
+        dialogBox.addControl(dialogText);
+
+        var questionContainer = new BABYLON.GUI.StackPanel();
+        dialogBox.addControl(questionContainer);
+
+        // Load Student Data from JSON
+        let studentsData = [];
+        fetch('studentsData.json')
+            .then(response => response.json())
+            .then(data => {
+                studentsData = data;
+                createStudents();
+            });
+
+        // Create Students
+        function createStudents() {
+            studentsData.forEach((student, index) => {
+                const studentMesh = BABYLON.MeshBuilder.CreateSphere(`student${index}`, { diameter: 1 }, scene);
+                studentMesh.position = new BABYLON.Vector3(index * 5 - 10, 0.5, 5);
+                studentMesh.metadata = student;
+            });
+        }
+
+        // Check Player Proximity
+        scene.onBeforeRenderObservable.add(() => {
+            scene.meshes.forEach(mesh => {
+                if (mesh.name.includes('student')) {
+                    const distance = BABYLON.Vector3.Distance(player.position, mesh.position);
+                    if (distance < 3 && !dialogBox.isVisible) {
+                        showDialog(mesh.metadata);
+                    }
+                }
+            });
+        });
+
+        // Show Dialog with Questions
+        function showDialog(student) {
+            dialogText.text = `Hi, I'm ${student.name} from the ${student.department} department. Select a question below to learn more:`;
+            questionContainer.clearControls();
+
+            student.questions.forEach((q, index) => {
+                let button = BABYLON.GUI.Button.CreateSimpleButton(`question${index}`, q.question);
+                button.width = "90%";
+                button.height = "40px";
+                button.color = "white";
+                button.background = "blue";
+                button.onPointerClickObservable.add(() => {
+                    dialogText.text = q.answer;
+                    questionContainer.clearControls();
+                });
+                questionContainer.addControl(button);
+            });
+
+            dialogBox.isVisible = true;
+        }
+
+        // Close Dialog on Right-Click
+        window.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            dialogBox.isVisible = false;
+        });
+
+        // Render Loop
+        engine.runRenderLoop(() => {
+            scene.render();
+        });
+
+        // Resize Event
+        window.addEventListener("resize", () => {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>
