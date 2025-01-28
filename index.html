@@ -69,17 +69,15 @@
             await engine.initAsync();
             return engine;
         };
-        var hero, walkAnim, idleAnim, building, boundrie;
+        var hero, walkAnim, idleAnim, building, boundrie, box, moving;
 
         var createScene = function () {
-            var scene = new BABYLON.Scene(engine);
-            const gravity = new BABYLON.Vector3(0, -9.81, 0);
-            scene.enablePhysics(gravity, new BABYLON.CannonJSPlugin());
+            var scene = new BABYLON.Scene(engine);    
             scene.collisionsEnabled = true;
 
-            // scene.debugLayer.show({
-            //     embedMode: true
-            // });
+            scene.debugLayer.show({
+                embedMode: true
+            });
 
 
             // Camera and Lighting
@@ -113,51 +111,43 @@
 
             var ground = BABYLON.MeshBuilder.CreateGround("ground", { height: 50, width: 50, subdivisions: 4 }, scene);
             ground.position = new BABYLON.Vector3(0, 0, 0);
-            
+
             var groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene);
             groundMaterial.diffuseTexture = new BABYLON.Texture("textures/wood.jpg", scene);
             groundMaterial.diffuseTexture.uScale = 30;
             groundMaterial.diffuseTexture.vScale = 30;
             groundMaterial.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
             ground.material = groundMaterial;
-
-            ground.physicsImpostor = new BABYLON.PhysicsImpostor(
-                ground,
-                BABYLON.PhysicsImpostor.PlaneImpostor,
-                { mass: 0, friction: 0.5, restitution: 0.5 });
+            ground.isPickable = false;
 
             //Building
             BABYLON.SceneLoader.ImportMesh("", "../models/", "college.glb", scene, function (newMeshes) {
                 building = newMeshes[0];
                 building.position.x = 22;
-                building.position.y = 0.05;
+                building.position.y = 0;
                 building.rotationQuaternion = BABYLON.Quaternion.RotationYawPitchRoll(1.57, 0, 0);
-
+                // building.checkCollisions = true;
+                
                 boundrie = newMeshes[38];
-                boundrie.checkCollisions = true;
+                // boundrie.checkCollisions = true;
                 boundrie.visibility = 0;
+                // boundrie.showBoundingBox = true;
 
-                // boundrie.physicsImpostor = new BABYLON.PhysicsImpostor(
-                //     boundrie,
-                //     BABYLON.PhysicsImpostor.BoxImpostor,
-                //     { mass: 0, friction: 0.5, restitution: 0.5 });
             });
 
             // Character
             BABYLON.SceneLoader.ImportMesh("", "../models/", "walking.glb", scene, function (newMeshes, skeletons, animationGroups) {
+
                 hero = newMeshes[1];
+
                 hero.scaling = new BABYLON.Vector3(1, 1, 1);
                 hero.position = new BABYLON.Vector3(0, 0, 0);
-                hero.checkCollisions = true;
-                hero.ellipsoid = new BABYLON.Vector3(0.5, 1, 0.5); // Approximate size of hero
-                hero.ellipsoidOffset = new BABYLON.Vector3(0, 1, 0); // Offset for ellipsoid
-
-                // hero.physicsImpostor = new BABYLON.PhysicsImpostor(
-                //     hero,
-                //     BABYLON.PhysicsImpostor.sphereImpostor,
-                //     { mass: 1, friction: 0.5, restitution: 0.1 });
+                hero.isPickable = false;
+                // hero.showBoundingBox = true;
+                // hero.checkCollisions = true;
 
                 camera1.target = hero;
+                console.log(camera1.target);
 
                 walkAnim = scene.getAnimationGroupByName("walking");
                 idleAnim = scene.getAnimationGroupByName("idle");
@@ -166,6 +156,40 @@
                     idleAnim.start(true, 1.0, idleAnim.from, idleAnim.to, true);
                 }
             });
+
+            function vecToLocal(vector, mesh) {
+                var m = mesh.getWorldMatrix();
+                var v = BABYLON.Vector3.TransformCoordinates(vector, m);
+                return v;
+            }
+
+            function castRay() {
+                let offset = 1;
+                var origin = (camera1.target);
+
+                var forward = new BABYLON.Vector3(0, 1, 0);
+                forward = vecToLocal(forward, hero);
+
+                var direction = forward.subtract(origin);
+                direction = BABYLON.Vector3.Normalize(direction);
+
+                var length = 3;
+
+                var ray = new BABYLON.Ray(origin, direction, length);
+
+                let rayHelper = new BABYLON.RayHelper(ray);
+                rayHelper.show(scene);
+
+                var hit = scene.pickWithRay(ray);
+
+                if (hit.pickedMesh && hit.pickedMesh.uniqueId == 209) {
+                    moving = false;
+                    console.log(hit.pickedMesh.uniqueId);
+
+                } else {
+                    moving =true;
+                }
+            }
 
             // Key Input Handlin
             let inputMap = {};
@@ -178,35 +202,32 @@
 
             // Animation and Movement
             scene.onBeforeRenderObservable.add(() => {
-                let moving = false;
+                moving = false;
 
                 if (hero && walkAnim && idleAnim) {
                     let direction = new BABYLON.Vector3(0, 0, 0);
 
                     if (inputMap["w"] || inputMap["W"]) {
                         direction.y -= 1;
-                        moving = true;
+                        castRay();
                     }
                     if (inputMap["s"] || inputMap["S"]) {
                         direction.y += 1;
-                        moving = true;
+                        castRay();
                     }
                     if (inputMap["a"] || inputMap["A"]) {
                         direction.x -= 1;
-                        moving = true;
+                        castRay();
                     }
                     if (inputMap["d"] || inputMap["D"]) {
                         direction.x += 1;
-                        moving = true;
+                        castRay();
                     }
-
+                    const targetRotation = Math.atan2(direction.x, direction.y);
+                    hero.rotationQuaternion = BABYLON.Quaternion.RotationYawPitchRoll(0, 0, -targetRotation);
                     if (moving) {
                         direction.normalize();
-
-                        hero.moveWithCollisions(direction.scale(10));
-
-                        const targetRotation = Math.atan2(direction.x, direction.y);
-                        hero.rotationQuaternion = BABYLON.Quaternion.RotationYawPitchRoll(0, 0, -targetRotation);
+                        hero.moveWithCollisions(direction.scale(5));
 
                         if (!walkAnim.isPlaying) {
                             idleAnim.stop();
@@ -247,4 +268,5 @@
         });
     </script>
 </body>
+
 </html>
