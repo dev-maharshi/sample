@@ -143,39 +143,8 @@
                 return distance <= range;
             }
         }
-        function vecToLocal(vector, mesh) {
-            var m = mesh.getWorldMatrix();
-            var v = BABYLON.Vector3.TransformCoordinates(vector, m);
-            return v;
-        }
-
-        function castRay() {
-            var origin = (player.position);
-
-
-            var forward = new BABYLON.Vector3(1, 0, 0);
-            forward = vecToLocal(forward, player);
-
-            var direction = forward.subtract(origin);
-            direction = BABYLON.Vector3.Normalize(direction);
-
-            var length = 100;
-
-            var ray = new BABYLON.Ray(origin, direction, length);
-
-            let rayHelper = new BABYLON.RayHelper(ray);
-            rayHelper.show(scene);
-
-            var hit = scene.pickWithRay(ray);
-
-            if (hit.pickedMesh) {
-                hit.pickedMesh.scaling.y += 0.01;
-                console.log(hit.pickedMesh.name);
-
-            }
-        }
+       
         scene.onBeforeRenderObservable.add(() => {
-            castRay();
             var speed = 0.1;
             if (inputMap["w"]) {
                 player.moveWithCollisions(new BABYLON.Vector3(0, 0, speed * -1));

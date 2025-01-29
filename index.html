@@ -129,8 +129,8 @@
                 // building.checkCollisions = true;
                 
                 boundrie = newMeshes[38];
-                // boundrie.checkCollisions = true;
                 boundrie.visibility = 0;
+                // boundrie.checkCollisions = true;
                 // boundrie.showBoundingBox = true;
 
             });
@@ -147,7 +147,6 @@
                 // hero.checkCollisions = true;
 
                 camera1.target = hero;
-                console.log(camera1.target);
 
                 walkAnim = scene.getAnimationGroupByName("walking");
                 idleAnim = scene.getAnimationGroupByName("idle");
@@ -164,7 +163,6 @@
             }
 
             function castRay() {
-                let offset = 1;
                 var origin = (camera1.target);
 
                 var forward = new BABYLON.Vector3(0, 1, 0);
@@ -185,6 +183,7 @@
                 if (hit.pickedMesh && hit.pickedMesh.uniqueId == 209) {
                     moving = false;
                     console.log(hit.pickedMesh.uniqueId);
+                    console.log(hit);
 
                 } else {
                     moving =true;
@@ -223,8 +222,7 @@
                         direction.x += 1;
                         castRay();
                     }
-                    const targetRotation = Math.atan2(direction.x, direction.y);
-                    hero.rotationQuaternion = BABYLON.Quaternion.RotationYawPitchRoll(0, 0, -targetRotation);
+
                     if (moving) {
                         direction.normalize();
                         hero.moveWithCollisions(direction.scale(5));
@@ -239,6 +237,8 @@
                             idleAnim.start(true, 1.0, idleAnim.from, idleAnim.to, true);
                         }
                     }
+                    const targetRotation = Math.atan2(direction.x, direction.y);
+                    hero.rotationQuaternion = BABYLON.Quaternion.RotationYawPitchRoll(0, 0, -targetRotation);
                 }
             });
             return scene;
